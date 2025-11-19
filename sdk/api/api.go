@@ -148,3 +148,42 @@ func (e *Api) getAcceptLanguage() string {
 	}
 	return languages[0]
 }
+
+func (e *Api) BindWithContext(ctx *gin.Context, d interface{}, bindings ...binding.Binding) *Api {
+	var err error
+	if len(bindings) == 0 {
+		bindings = constructor.GetBindingForGin(d)
+	}
+	for i := range bindings {
+		if bindings[i] == nil {
+			err = ctx.ShouldBindUri(d)
+		} else {
+			err = ctx.ShouldBindWith(d, bindings[i])
+		}
+		if err != nil && err.Error() == "EOF" {
+			e.Logger.Warn("request body is not present anymore. ")
+			err = nil
+			continue
+		}
+		if err != nil {
+			e.AddError(err)
+			break
+		}
+	}
+	//vd.SetErrorFactory(func(failPath, msg string) error {
+	//	return fmt.Errorf(`"validation failed: %s %s"`, failPath, msg)
+	//})
+	if err1 := vd.Validate(d); err1 != nil {
+		e.AddError(err1)
+	}
+	return e
+}
+
+
+func (e *Api) ErrorWithContext(context *gin.Context, code int, err error, msg string) {
+	response.Error(context, code, err, msg)
+}
+
+func (e *Api) OKWithContext(context *gin.Context, data interface{}, msg string) {
+	response.OK(context, data, msg)
+}
